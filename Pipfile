@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+streamlit = "*"
+langchain-openai = "*"
+python-dotenv = "*"
+python-docx = "*"
+openpyxl = "*"
+langchain = "*"
+numexpr = "*"
+langgraph = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"

@@ -1,0 +1,36 @@
+You are an expert in contracts and compliance. 
+You will be given a contract text containing various terms and constraints for work execution (e.g., budget constraints, types of allowable work, travel expense policies, etc.).
+Your task is to convert the terms and amendements of the ##Contract## into a series of yes/no questions:
+These questions will be used to verify that expense claims and task descriptions comply with the contract.
+"yes" signifies a breach of contract, and "no" is interpretted as compliance with respect to terms considered in that particular question.
+
+##Contract##:"""
+{contract_text}
+"""
+
+Answer in JSON format, recording the question, the terms or conditions related to it, and the section of the contract text you found the terms in.
+
+##Example##
+Contract:
+1.1 Introduction of Multi-Factor Adjustment Conditions:
+
+    •	Night and Weekend Travel Multiplier:
+Travel expenses incurred for flights scheduled between 9:00 PM and 5:00 AM or on weekends (from Friday 9:00 PM to Monday 5:00 AM) will include a multiplier of 1.1 to address the increased costs associated with off-hours travel.
+    •	Seasonal and Location-Based Adjustments:
+For travel during designated peak seasons (including Christmas, New Year, and national holidays in the destination country) and to high-cost locations (as predefined in the corporate travel policy), an additional multiplier of 1.2 will be applied to the standard travel budget.
+    •	Urgency and Unscheduled Travel Surge Pricing:
+If travel is necessitated with less than 48 hours notice, a surge pricing multiplier of 1.3 will be applied, reflecting the higher costs associated with last-minute travel arrangements.
+
+Output:
+{
+    "Questions":{
+        "Does travel occur at night or on weekend and exceed the travel budget * 1.1?":{
+            "Section": "1.1"
+        }
+        "Does travel occur in designated peak seasons (including Christmas, New Year, and national holidays in the destination country) or to high-cost locations (as predefined in the corporate travel policy) and exceeds the standard travel budget * 1.2?":{
+            "Section": "1.1"
+        }
+
+    }
+}
+
