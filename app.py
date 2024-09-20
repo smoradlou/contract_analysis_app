@@ -184,12 +184,13 @@ with col2:
             else:
                 break
 
-        results_df.to_excel("output.xlsx")
+        output_filename = "output/tasks_compliance.xlsx"
+        results_df.to_excel(output_filename)
         
-        with open("output.xlsx", "rb") as template_file:
+        with open(output_filename, "rb") as template_file:
             template_byte = template_file.read()
 
         st.download_button(label="Click to Download Output File",
                         data=template_byte,
-                        file_name="output.xlsx",
+                        file_name=output_filename.split("/")[-1],
                         mime='application/octet-stream')
