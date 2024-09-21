@@ -1,5 +1,4 @@
 from pathlib import Path
-from src.config import load_config
 from src.utils import getText
 from src.prompts import read_prompt, format_prompt
 
@@ -11,6 +10,7 @@ from langchain.agents import AgentExecutor, create_tool_calling_agent, Tool
 from langchain_core.prompts import ChatPromptTemplate
 
 import pandas as pd
+
 
 # Helper functions to handle extraction, relevant terms, and compliance checks
 def extract_terms(model, document):
@@ -32,7 +32,7 @@ def get_relevant_terms(model, task_description, terms_json):
     return model.invoke(formatted_prompt_text)
 
 
-def check_compliance(model, tools, task_sentence, relevant_terms_json):
+def check_compliance(agent_executer, task_sentence, relevant_terms_json):
     # This is the compliance prompt filled with the task and its relevant terms
     formatted_prompt_text = format_prompt(
         read_prompt("resources/prompts/compliance_prompt.md"),
@@ -40,29 +40,29 @@ def check_compliance(model, tools, task_sentence, relevant_terms_json):
         relevant_terms_json=relevant_terms_json,
     )
 
-    # This is the chat prompt for the agent
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "You are a helpful contract manager.",
-            ),
-            ("human", "{input}"),
-            # Placeholders fill up a **list** of messages
-            ("placeholder", "{agent_scratchpad}"),
-        ]
-    )
-    agent = create_tool_calling_agent(model, tools, prompt)
-    agent_executer = AgentExecutor(
-        agent=agent,
-        tools=tools,
-        verbose=True,
-        max_iterations=5,
-        agent_executor_kwargs={
-            "handle_parsing_errors": True,
-            "return_intermediate_steps": True,
-        },
-    )
+    # # This is the chat prompt for the agent
+    # prompt = ChatPromptTemplate.from_messages(
+    #     [
+    #         (
+    #             "system",
+    #             "You are a helpful contract manager.",
+    #         ),
+    #         ("human", "{input}"),
+    #         # Placeholders fill up a **list** of messages
+    #         ("placeholder", "{agent_scratchpad}"),
+    #     ]
+    # )
+    # agent = create_tool_calling_agent(model, tools, prompt)
+    # agent_executer = AgentExecutor(
+    #     agent=agent,
+    #     tools=tools,
+    #     verbose=True,
+    #     max_iterations=5,
+    #     agent_executor_kwargs={
+    #         "handle_parsing_errors": True,
+    #         "return_intermediate_steps": True,
+    #     },
+    # )
 
     response = agent_executer.invoke({"input": formatted_prompt_text})
     return response["output"]
@@ -71,12 +71,10 @@ def check_compliance(model, tools, task_sentence, relevant_terms_json):
 st.set_page_config(layout="wide")
 st.title("🦜🔗 Contract Analysis App")
 
-# Load configuration
-config = load_config()
 
-# Secret keys (make sure to set these in your Cloud Run environment and local environment)
-OPENAI_API_KEY = config["OPENAI_API_KEY"]
-LLM_MODEL_NAME = config["LLM_MODEL_NAME"]
+# Configuration for LLM
+OPENAI_API_KEY = st.sidebar.text_input("OpenAI API Key", type="password")
+LLM_MODEL_NAME = "gpt-4o-mini"
 
 # Initialize the two data structures
 terms_json = None
@@ -92,7 +90,7 @@ json_output_llm = json_output_llm.bind(response_format={"type": "json_object"})
 # Initialize LLM for compliance without JSON binding
 llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0.0, api_key=OPENAI_API_KEY)
 
-
+# Budget cap calculator tool
 llm_math_chain = LLMMathChain.from_llm(llm=llm)
 tools = [
     Tool(
@@ -103,6 +101,30 @@ tools = [
             Or if you need to see if a cost of a task or an event is under the budget cap.",
     )
 ]
+
+# This is the chat prompt for the compliance checker agent
+prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a helpful contract manager.",
+        ),
+        ("human", "{input}"),
+        # Placeholders fill up a **list** of messages
+        ("placeholder", "{agent_scratchpad}"),
+    ]
+)
+agent = create_tool_calling_agent(llm, tools, prompt)
+agent_executer = AgentExecutor(
+    agent=agent,
+    tools=tools,
+    verbose=True,
+    max_iterations=5,
+    agent_executor_kwargs={
+        "handle_parsing_errors": True,
+        "return_intermediate_steps": True,
+    },
+)
 
 # Define layout with two columns
 col1, col2 = st.columns(2)
@@ -120,6 +142,13 @@ with col1:
         response = extract_terms(json_output_llm, contract_text)
         terms_json = response.content
         st.json(terms_json)
+        
+        st.download_button(
+        label="Download JSON",
+        file_name="terms.json",
+        mime="application/json",
+        data=terms_json,
+)
 
 with col2:
     # Upload the tasks CSV, Excel, or text file
@@ -158,7 +187,7 @@ with col2:
                 ).content
                 if relevant_terms_json != "None":
                     response = check_compliance(
-                        llm, tools, task_text, relevant_terms_json
+                        agent_executer, task_text, relevant_terms_json
                     )
                 # Use all terms if the relevance prompt doesn't return any terms
                 else:
@@ -186,11 +215,13 @@ with col2:
 
         output_filename = "output/tasks_compliance.xlsx"
         results_df.to_excel(output_filename)
-        
+
         with open(output_filename, "rb") as template_file:
             template_byte = template_file.read()
 
-        st.download_button(label="Click to Download Output File",
-                        data=template_byte,
-                        file_name=output_filename.split("/")[-1],
-                        mime='application/octet-stream')
+        st.download_button(
+            label="Click to Download Output File",
+            data=template_byte,
+            file_name=output_filename.split("/")[-1],
+            mime="application/octet-stream",
+        )
