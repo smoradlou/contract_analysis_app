@@ -74,6 +74,9 @@ st.title("🦜🔗 Contract Analysis App")
 
 # Configuration for LLM
 OPENAI_API_KEY = st.sidebar.text_input("OpenAI API Key", type="password")
+if not OPENAI_API_KEY.startswith("sk-"):
+    st.warning("Please enter your OpenAI API key!", icon="⚠")
+
 LLM_MODEL_NAME = "gpt-4o-mini"
 
 # Initialize the two data structures
